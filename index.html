@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f8fa">
+  <meta name="description" content="查看 KUSE 各模型、各任务分类的平均耗时与积分，深入浏览完整 Prompt 和 10 组评测数据。">
+  <title>KUSE 模型评测看板</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#" aria-label="KUSE 评测首页"><span class="brand-symbol">k</span><span>KUSE<span class="brand-separator"></span><span class="brand-label">Benchmark</span></span></a>
+    <nav aria-label="主导航"><a id="overview-link" class="active" href="#">评测总览</a><a id="method-link" href="#method">统计口径</a></nav>
+    <span class="snapshot"><span class="dot"></span>数据快照 <b>2026.10.10</b></span>
+  </header>
+  <main id="app" aria-live="polite"><div class="loading">正在加载评测数据…</div></main>
+  <footer><span>KUSE Benchmark</span><span>固定测试集 · 真实执行记录 · 均值可追溯</span><a href="#method">数据与统计说明 ↗</a></footer>
+  <div id="toast" role="status" class="toast" hidden></div>
+</body>
+</html>
