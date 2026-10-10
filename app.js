@@ -115,4 +115,4 @@ function route(){
   }else renderOverview();
   window.scrollTo(0,0);
 }
-fetch('data.json?revision=89726a6741b3',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}).then(data=>{DATA=data;route();window.addEventListener('hashchange',()=>{detailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
+fetch('data.json?revision=11a9d20a22ea',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}).then(data=>{DATA=data;route();window.addEventListener('hashchange',()=>{detailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
