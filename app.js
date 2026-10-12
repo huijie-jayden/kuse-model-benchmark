@@ -13,7 +13,15 @@ const fmt = value => numeric(value) ? rounded(value).toLocaleString('zh-CN',{max
 const rawFmt = fmt;
 const metricName = () => metric==='quality'?'平均质量分':metric==='seconds'?'平均耗时':'平均积分';
 const unit = () => metric==='quality'?'分（满分100）':metric === 'seconds' ? '秒' : '积分';
-const activeModels = () => DATA.models.filter(m => m !== DATA.alias.model);
+const activeModels = () => {
+  const models=DATA.models.filter(m=>m!==DATA.alias.model);
+  const haiku=models.indexOf('Claude Haiku 5.5');
+  if(haiku>=0&&models.includes('Claude Sonnet 5')){
+    models.splice(haiku,1);
+    models.splice(models.indexOf('Claude Sonnet 5')+1,0,'Claude Haiku 5.5');
+  }
+  return models;
+};
 const rowsFor = (model, category) => DATA.records.filter(r => (!model || model === 'all' || r.model === model) && (!category || r.category === category) && r.model !== DATA.alias.model);
 function stats(rows){
   const complete = rows.filter(r=>r.status==='已完成');
@@ -74,6 +82,7 @@ function renderDetail(model,category){
   document.getElementById('export-csv').addEventListener('click',()=>exportCsv(model,category));
 }
 function renderCases(model,category){
+  const modelOrder=activeModels();
   const tests=DATA.tests.filter(t=>t.category===category);
   const query=detailQuery.trim().toLowerCase();
   const filtered=tests.filter(t=>(t.id+' '+t.prompt+' '+t.intent).toLowerCase().includes(query));
@@ -81,7 +90,7 @@ function renderCases(model,category){
   document.getElementById('case-nav').innerHTML=`<label>本组 10 条 PROMPT</label>${filtered.map(t=>`<a href="#case-${t.id}" data-case="case-${t.id}"><span class="num">${String(tests.indexOf(t)+1).padStart(2,'0')}</span><span>${escapeHtml(t.intent && t.intent.length<=24 ? t.intent : t.id)}</span></a>`).join('')}<div class="count-label">显示 ${filtered.length} / 10 组</div>`;
   document.querySelectorAll('[data-case]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();document.getElementById(a.dataset.case)?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}));
   document.getElementById('case-list').innerHTML=filtered.map(t=>{
-    const caseRows=rows.filter(r=>r.testId===t.id);
+    const caseRows=rows.filter(r=>r.testId===t.id).sort((a,b)=>modelOrder.indexOf(a.model)-modelOrder.indexOf(b.model));
     const noteRows=caseRows.filter(r=>r.note);
     return `<article class="case-card" id="case-${escapeHtml(t.id)}"><div class="case-top"><span class="case-index">${String(tests.indexOf(t)+1).padStart(2,'0')}</span><div><h2 class="case-title">${escapeHtml(t.intent && t.intent.length<=48 ? t.intent : '测试 '+String(tests.indexOf(t)+1).padStart(2,'0'))}</h2><div class="case-id">${escapeHtml(t.id)}</div></div><button class="button" data-copy="${escapeHtml(t.id)}" aria-label="复制 ${escapeHtml(t.id)} 的完整 Prompt">复制 Prompt</button></div><div class="prompt-area"><p class="prompt-label">FULL PROMPT</p><p class="prompt-text">${escapeHtml(t.prompt)}</p>${t.intent && t.intent.length>48 ? '<p class="intent-text">评测意图：'+escapeHtml(t.intent)+'</p>' : ''}<div class="case-meta"><span>${escapeHtml(t.category)}</span><span>来源：${escapeHtml(t.source)}</span><span>附件：${t.attachmentCount??0} 个</span></div>${t.attachments.filter(Boolean).length?`<div class="attachments"><details><summary>查看附件文件名</summary><ul>${t.attachments.filter(Boolean).map(a=>`<li>${escapeHtml(a.split('/').pop())}</li>`).join('')}</ul></details></div>`:''}</div><div class="results-scroll"><table class="results"><caption style="position:absolute;width:1px;height:1px;overflow:hidden">${escapeHtml(t.id)} 执行记录</caption><thead><tr><th scope="col">评测模型</th><th scope="col" class="numeric">耗时 / 秒</th><th scope="col" class="numeric">积分消耗</th><th scope="col">执行状态</th><th scope="col">结果判定</th><th scope="col">执行日期</th></tr></thead><tbody>${caseRows.map(r=>`<tr><td class="model-name">${escapeHtml(r.model)}</td><td class="numeric">${rawFmt(r.seconds)}</td><td class="numeric">${rawFmt(r.credits)}</td><td><span class="status ${statusClass(r.status)}">${escapeHtml(r.status)}</span></td><td class="${r.verdict==='通过'?'verdict-pass':r.verdict==='不通过'?'verdict-fail':''}">${escapeHtml(r.verdict||'—')}</td><td style="color:#929dab">${escapeHtml(r.date||'—')}</td></tr>`).join('')}</tbody></table></div>${noteRows.length?`<div class="record-note">${noteRows.map(r=>`<div><b>${model==='all'?escapeHtml(r.model)+' · ':''}原始备注：</b>${escapeHtml(r.note)}</div>`).join('')}</div>`:''}<div class="case-tail"><span>轮次：${[...new Set(caseRows.map(r=>r.round))].map(escapeHtml).join(' / ')}</span><span>记录来源：${[...new Set(caseRows.map(r=>r.source))].map(escapeHtml).join(' / ')}</span>${model==='all'?`<span>${caseRows.length} 条模型记录</span>`:''}</div></article>`;
   }).join('')||'<div class="empty-state">没有匹配的 Prompt，清空搜索可查看完整 10 组数据。</div>';
