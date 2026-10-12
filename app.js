@@ -130,4 +130,4 @@ function route(){
   }else {if(hash==='#scores')metric='quality';else if(metric==='quality')metric='seconds';renderOverview();}
   window.scrollTo(0,0);
 }
-Promise.all([fetch('data.json?revision=11a9d20a22ea',{cache:'no-cache'}),fetch('quality.json?revision=38e91c80077c',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality])=>{DATA={...data,quality};route();window.addEventListener('hashchange',()=>{detailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
+Promise.all([fetch('data.json?revision=11a9d20a22ea',{cache:'no-cache'}),fetch('quality.json?revision=75826e2103ef',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality])=>{DATA={...data,quality};route();window.addEventListener('hashchange',()=>{detailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
