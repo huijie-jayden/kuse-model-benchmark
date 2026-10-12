@@ -1,0 +1,53 @@
+'use strict';
+function qualityFor(model,testId){return DATA.quality.records.find(r=>r.model===model&&r.testId===testId);}
+function qualityRows(model,category){return rowsFor(model,category==='all'?null:category);}
+function qualityHash(model,category){return '#quality/'+encodeURIComponent(model)+'/'+encodeURIComponent(category);}
+function qualityStats(rows){
+  const reviews=rows.map(r=>qualityFor(r.model,r.testId)).filter(Boolean);
+  const scored=reviews.filter(r=>numeric(r.score));
+  const mean=key=>{const values=scored.map(r=>r[key]).filter(numeric);return values.length?values.reduce((a,b)=>a+b,0)/values.length:null;};
+  return {quality:mean('score'),qualityN:scored.length,rule:mean('ruleScore'),content:mean('contentScore'),total:rows.length,pending:reviews.filter(r=>!numeric(r.score)).length};
+}
+function qualityIntro(){
+  const s=qualityStats(rowsFor());
+  const models=[...new Set(DATA.quality.records.filter(r=>numeric(r.score)).map(r=>r.model))];
+  return `<section class="quality-intro" aria-label="质量评分覆盖情况"><div class="quality-intro-title"><p class="eyebrow">ARTIFACT QUALITY</p><h2>产物质量评分 <span>满分 100</span></h2><p>已录入 ${escapeHtml(models.join('、'))}。空白表示尚无评分，不计入均值。</p></div><div class="quality-summary"><div><b>${models.length}<small> / ${activeModels().length}</small></b><label>已有评分的模型</label></div><div><b>${s.qualityN}</b><label>已评分产物</label></div><div><b>${s.pending}</b><label>Haiku 待提供回答</label></div><div><b>${fmt(s.quality)}<small> / 100</small></b><label>已评分产物均分</label></div></div></section>`;
+}
+function qualityMethodology(){
+  return `<section class="method-card quality-method"><h2>质量评分统计口径</h2><p>采用源表的最终评分，满分 100 分。各任务按规则分与内容分加权，并应用源表指定的封顶分。分类与模型均分仅对已有最终评分的记录取算术平均，先计算均值，再四舍五入显示整数。未评分记录保留为空。</p><p>${escapeHtml(DATA.quality.methodology)}</p><p>当前仅 Haiku 有质量评分，分类均分也仅来自 Haiku；模型均分覆盖 60 / 80 条任务。</p><div class="quality-source">评分来源：${escapeHtml(DATA.quality.sourceName)} · 更新于 ${escapeHtml(DATA.quality.updated)}</div></section>`;
+}
+function renderQualityDetail(model,category){
+  if((model!=='all'&&!activeModels().includes(model))||(category!=='all'&&!DATA.categories.includes(category))){app.innerHTML='<div class="error-state">未找到对应评分。<a href="#scores">返回质量评分</a></div>';return;}
+  metric='quality';
+  const rows=qualityRows(model,category),s=qualityStats(rows),tests=DATA.tests.filter(t=>category==='all'||t.category===category);
+  const label=model==='all'?'全部实际模型':model,catLabel=category==='all'?'全部分类':category;
+  document.title=`${label} · ${catLabel} · 质量评分 | KUSE Benchmark`;
+  const options=(values,selected)=>values.map(v=>`<option value="${escapeHtml(v)}" ${v===selected?'selected':''}>${escapeHtml(v)}</option>`).join('');
+  app.innerHTML=`<div class="breadcrumb"><a href="#scores">← 质量评分总览</a><span>/</span><span>${escapeHtml(catLabel)}</span><span>/</span><span>${escapeHtml(label)}</span></div><section class="detail-heading"><div><p class="eyebrow">QUALITY SCORES & EVIDENCE</p><h1>${escapeHtml(catLabel)}<span> / 质量评分</span></h1><p class="subtitle">${escapeHtml(label)} · ${tests.length} 条完整 Prompt · 评分构成与核对依据</p></div><button class="button" id="export-quality">↓ 导出评分 CSV</button></section><div class="detail-controls"><select id="quality-model" aria-label="选择评分模型"><option value="all" ${model==='all'?'selected':''}>全部实际模型</option>${options(activeModels(),model)}</select><select id="quality-category" aria-label="选择评分分类"><option value="all" ${category==='all'?'selected':''}>全部分类</option>${options(DATA.categories,category)}</select><label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><input id="quality-search" type="search" placeholder="搜索 Prompt 或测试集 ID…" aria-label="搜索评分 Prompt" value="${escapeHtml(detailQuery)}"></label></div><div class="detail-kpis"><div class="detail-kpi quality-kpi"><label>平均质量分</label><b>${fmt(s.quality)}<small>/ 100</small></b><p>仅统计已有最终评分的记录</p></div><div class="detail-kpi"><label>评分覆盖</label><b>${s.qualityN}<small>/ ${s.total}</small></b><p>已评分记录 / 本组记录</p></div><div class="detail-kpi"><label>规则分均值</label><b>${fmt(s.rule)}<small>/ 100</small></b><p>任务要求与规则完成度</p></div><div class="detail-kpi"><label>内容分均值</label><b>${fmt(s.content)}<small>/ 100</small></b><p>源表中的内容质量评分</p></div></div><div class="quality-detail-note">${s.qualityN?'最终评分已应用源表封顶规则。各项分数和均值四舍五入显示整数。':'本组尚无质量评分，分数保留为空。'} ${s.pending?'缺少文字回答的任务标为“待提供回答”。':''}</div><div class="detail-body"><aside class="case-nav" aria-label="评分测试目录" id="quality-nav"></aside><div id="quality-list"></div></div>${qualityMethodology()}`;
+  renderQualityCases(model,category);
+  const update=()=>{detailQuery='';location.hash=qualityHash(document.getElementById('quality-model').value,document.getElementById('quality-category').value);};
+  document.getElementById('quality-model').addEventListener('change',update);
+  document.getElementById('quality-category').addEventListener('change',update);
+  document.getElementById('quality-search').addEventListener('input',e=>{detailQuery=e.target.value;renderQualityCases(model,category);});
+  document.getElementById('export-quality').addEventListener('click',()=>exportQualityCsv(model,category));
+}
+function renderQualityCases(model,category){
+  const tests=DATA.tests.filter(t=>category==='all'||t.category===category),rows=qualityRows(model,category),query=detailQuery.trim().toLowerCase();
+  const filtered=tests.filter(t=>(t.id+' '+t.prompt+' '+t.intent).toLowerCase().includes(query));
+  document.getElementById('quality-nav').innerHTML=`<label>本组 ${tests.length} 条 PROMPT</label>${filtered.map(t=>`<a href="#score-${escapeHtml(t.id)}" data-score-nav="score-${escapeHtml(t.id)}"><span class="num">${String(tests.indexOf(t)+1).padStart(2,'0')}</span><span>${escapeHtml(t.id)}</span></a>`).join('')}<div class="count-label">显示 ${filtered.length} / ${tests.length} 组</div>`;
+  document.getElementById('quality-list').innerHTML=filtered.map(t=>{
+    const caseRows=rows.filter(r=>r.testId===t.id);
+    const reviews=caseRows.map(r=>qualityFor(r.model,t.id)).filter(Boolean);
+    const scored=reviews.filter(r=>numeric(r.score));
+    return `<article class="case-card quality-case" id="score-${escapeHtml(t.id)}"><div class="case-top"><span class="case-index">${String(tests.indexOf(t)+1).padStart(2,'0')}</span><div><h2 class="case-title">${escapeHtml(t.id)}</h2><div class="case-id">${escapeHtml(t.category)}</div></div><button class="button" data-quality-copy="${escapeHtml(t.id)}">复制 Prompt</button></div><div class="prompt-area"><p class="prompt-label">FULL PROMPT</p><p class="prompt-text">${escapeHtml(t.prompt)}</p><div class="case-meta"><span>附件：${t.attachmentCount??0} 个</span><span>${caseRows.length} 条模型记录</span></div>${t.attachments.filter(Boolean).length?`<div class="attachments"><details><summary>查看附件文件名</summary><ul>${t.attachments.filter(Boolean).map(a=>`<li>${escapeHtml(a.split('/').pop())}</li>`).join('')}</ul></details></div>`:''}</div><div class="results-scroll"><table class="results quality-results"><caption class="sr-only">${escapeHtml(t.id)} 评分明细</caption><thead><tr><th scope="col">评测模型</th><th scope="col" class="numeric">最终评分 / 100</th><th scope="col" class="numeric">规则分</th><th scope="col" class="numeric">内容分</th><th scope="col" class="numeric">封顶分</th><th scope="col">评分状态</th></tr></thead><tbody>${caseRows.map(r=>{const q=qualityFor(r.model,t.id);return `<tr><td class="model-name">${escapeHtml(r.model)}</td><td class="numeric final-score">${fmt(q?.score)}</td><td class="numeric">${fmt(q?.ruleScore)}</td><td class="numeric">${fmt(q?.contentScore)}</td><td class="numeric">${q&&numeric(q.score)&&!numeric(q.cap)?'未设封顶':fmt(q?.cap)}</td><td><span class="status ${numeric(q?.score)?'completed':q?'pending':''}">${escapeHtml(q?.status||'暂无评分')}</span></td></tr>`;}).join('')}</tbody></table></div>${scored.map(q=>`<section class="score-review" aria-label="${escapeHtml(q.model)} 评分依据"><div class="score-review-top"><div><span class="score-review-label">${model==='all'?escapeHtml(q.model)+' · ':''}匹配产物</span><p class="artifact-name">${escapeHtml(q.artifact)}</p></div><div class="score-total"><b>${fmt(q.score)}</b><span> / 100</span></div></div><div class="score-bar" aria-hidden="true"><span style="width:${q.score}%"></span></div><div class="score-calculation"><span>规则权重 <b>${fmt(q.ruleWeight*100)}%</b></span><span>内容权重 <b>${fmt((1-q.ruleWeight)*100)}%</b></span><span>加权分（封顶前）<b>${fmt(q.weightedScore)}</b></span><span>封顶分 <b>${numeric(q.cap)?fmt(q.cap):'未设封顶'}</b></span></div><div class="score-evidence"><label>核对依据</label><p>${escapeHtml(q.evidence)}</p></div></section>`).join('')}${reviews.filter(q=>!numeric(q.score)).map(q=>`<div class="quality-pending"><b>${model==='all'?escapeHtml(q.model)+' · ':''}${escapeHtml(q.status)}</b><p>${escapeHtml(q.evidence)}</p></div>`).join('')}${reviews.length?'':'<div class="quality-pending"><p>尚未提供该模型的产物质量评分。</p></div>'}</article>`;
+  }).join('')||'<div class="empty-state">没有匹配的 Prompt，清空搜索可查看全部记录。</div>';
+  document.querySelectorAll('[data-score-nav]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();document.getElementById(a.dataset.scoreNav)?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}));
+  document.querySelectorAll('[data-quality-copy]').forEach(b=>b.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(DATA.tests.find(t=>t.id===b.dataset.qualityCopy).prompt);toast('完整 Prompt 已复制');}catch{toast('浏览器未允许复制，请选中 Prompt 文本复制');}}));
+}
+function exportQualityCsv(model,category){
+  const columns=['测试集 ID','模型','类别','完整 Prompt','最终评分（满分100）','规则分','内容分','规则权重（%）','内容权重（%）','封顶分','加权分（封顶前）','评分状态','匹配产物','核对依据'];
+  const rows=qualityRows(model,category).map(r=>{const q=qualityFor(r.model,r.testId),t=DATA.tests.find(t=>t.id===r.testId);return [r.testId,r.model,r.category,t.prompt,rounded(q?.score),rounded(q?.ruleScore),rounded(q?.contentScore),q&&numeric(q.ruleWeight)?rounded(q.ruleWeight*100):null,q&&numeric(q.ruleWeight)?rounded((1-q.ruleWeight)*100):null,rounded(q?.cap),rounded(q?.weightedScore),q?.status||'暂无评分',q?.artifact,q?.evidence];});
+  const csvValue=value=>{let text=String(value??'');if(/^[=+@\-\t\r]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+  const blob=new Blob(['\uFEFF'+[columns,...rows].map(row=>row.map(csvValue).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`KUSE_质量评分_${model==='all'?'全部模型':model}_${category==='all'?'全部分类':category}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('已导出完整 Prompt 与评分依据');
+}

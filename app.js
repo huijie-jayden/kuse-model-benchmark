@@ -11,7 +11,8 @@ const numeric = value => typeof value === 'number' && Number.isFinite(value);
 const rounded = value => numeric(value) ? Math.round(value) : null;
 const fmt = value => numeric(value) ? rounded(value).toLocaleString('zh-CN',{maximumFractionDigits:0}) : '—';
 const rawFmt = fmt;
-const unit = () => metric === 'seconds' ? '秒' : '积分';
+const metricName = () => metric==='quality'?'平均质量分':metric==='seconds'?'平均耗时':'平均积分';
+const unit = () => metric==='quality'?'分（满分100）':metric === 'seconds' ? '秒' : '积分';
 const activeModels = () => DATA.models.filter(m => m !== DATA.alias.model);
 const rowsFor = (model, category) => DATA.records.filter(r => (!model || model === 'all' || r.model === model) && (!category || r.category === category) && r.model !== DATA.alias.model);
 function stats(rows){
@@ -19,9 +20,9 @@ function stats(rows){
   const s = complete.filter(r=>numeric(r.seconds));
   const c = complete.filter(r=>numeric(r.credits));
   const mean = (rows,key) => rows.length ? rows.reduce((a,r)=>a+r[key],0)/rows.length : null;
-  return {seconds:mean(s,'seconds'),credits:mean(c,'credits'),secondsN:s.length,creditsN:c.length,completed:complete.length,total:rows.length,passed:rows.filter(r=>r.verdict==='通过').length};
+  return {...qualityStats(rows),seconds:mean(s,'seconds'),credits:mean(c,'credits'),secondsN:s.length,creditsN:c.length,completed:complete.length,total:rows.length,passed:rows.filter(r=>r.verdict==='通过').length};
 }
-function detailHash(model,category){return '#detail/'+encodeURIComponent(model)+'/'+encodeURIComponent(category);}
+function detailHash(model,category){return metric==='quality'?qualityHash(model,category):'#detail/'+encodeURIComponent(model)+'/'+encodeURIComponent(category);}
 function family(model){return model==='Auto'?'auto':model.startsWith('Claude')?'anthropic':'openai';}
 function icon(model){return model==='Auto'?'k':model.startsWith('Claude')?'✳':'◎';}
 function methodology(){
@@ -32,31 +33,33 @@ function methodology(){
 function renderOverview(){
   document.title='KUSE 模型评测看板';
   const global = stats(rowsFor());
-  app.innerHTML = `<section class="hero"><div><p class="eyebrow">KUSE MODEL BENCHMARK</p><h1>模型评测<span> / 总览</span></h1><p class="subtitle">不同模型，同一组任务。对比耗时与积分，点击均值查看完整 Prompt 和执行记录。</p></div><div class="hero-stats"><div class="hero-stat"><b>${activeModels().length}</b><small>实际评测模型</small></div><div class="hero-stat"><b>${DATA.categories.length}</b><small>任务分类</small></div><div class="hero-stat"><b>${DATA.tests.length}</b><small>固定 Prompt</small></div><div class="hero-stat"><b>${global.completed}<span style="color:#bbc2cb;font-size:15px;font-weight:400"> / ${global.total}</span></b><small>已完成记录 / 计划记录</small></div></div></section><section aria-label="模型与分类均值"><div class="toolbar"><div class="toolbar-left"><span class="section-title">模型 × 分类均值</span><div class="metric-switch"><span class="metric-switch-label">切换指标</span><div class="segmented" aria-label="展示指标"><button type="button" data-metric="seconds" aria-pressed="${metric==='seconds'}" class="${metric==='seconds'?'active':''}">平均耗时 <span class="metric-unit">s</span></button><button type="button" data-metric="credits" aria-pressed="${metric==='credits'}" class="${metric==='credits'?'active':''}">平均积分</button></div></div></div><div class="toolbar-right"><label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><input id="model-search" type="search" placeholder="搜索模型…" aria-label="搜索模型" value="${escapeHtml(modelQuery)}"></label><select id="sort-select" aria-label="排序方式"><option value="source" ${sorting==='source'?'selected':''}>默认顺序</option><option value="asc" ${sorting==='asc'?'selected':''}>均值从低到高</option><option value="desc" ${sorting==='desc'?'selected':''}>均值从高到低</option></select></div></div><p class="mobile-hint">左右滑动查看全部分类 →</p><div class="matrix-panel"><div class="matrix-scroller" id="matrix-mount"></div><div class="matrix-note"><span>单位：${unit()} · 点击任意均值，查看对应的 10 组 Prompt 与数据</span><span class="legend"><span><i></i>该列最低均值</span><span><sup>n</sup> = 有效记录数（少于 10 时标注）</span></span></div></div><div class="below-note"><span>Gemini 3.8 Flash → GPT-5.6 Terra，未单独执行</span><a href="#method">均值仅统计已完成且有数值的记录 · 查看口径 ↗</a></div></section>${methodology()}`;
+  app.innerHTML = `<section class="hero"><div><p class="eyebrow">KUSE MODEL BENCHMARK</p><h1>模型评测<span> / ${metric==='quality'?'质量评分':'总览'}</span></h1><p class="subtitle">${metric==='quality'?'从任务要求到最终产物，查看质量评分、评分构成与核对依据。':'不同模型，同一组任务。对比耗时与积分，点击均值查看完整 Prompt 和执行记录。'}</p></div><div class="hero-stats"><div class="hero-stat"><b>${activeModels().length}</b><small>实际评测模型</small></div><div class="hero-stat"><b>${DATA.categories.length}</b><small>任务分类</small></div><div class="hero-stat"><b>${DATA.tests.length}</b><small>固定 Prompt</small></div><div class="hero-stat"><b>${global.completed}<span style="color:#bbc2cb;font-size:15px;font-weight:400"> / ${global.total}</span></b><small>已完成记录 / 计划记录</small></div></div></section><section aria-label="模型与分类均值"><div class="toolbar"><div class="toolbar-left"><span class="section-title">模型 × 分类${metric==='quality'?'质量均分':'均值'}</span><div class="metric-switch"><span class="metric-switch-label">切换指标</span><div class="segmented" aria-label="展示指标"><button type="button" data-metric="seconds" aria-pressed="${metric==='seconds'}" class="${metric==='seconds'?'active':''}">平均耗时 <span class="metric-unit">s</span></button><button type="button" data-metric="credits" aria-pressed="${metric==='credits'}" class="${metric==='credits'?'active':''}">平均积分</button><button type="button" data-metric="quality" aria-pressed="${metric==='quality'}" class="${metric==='quality'?'active':''}">质量评分</button></div></div></div><div class="toolbar-right"><label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><input id="model-search" type="search" placeholder="搜索模型…" aria-label="搜索模型" value="${escapeHtml(modelQuery)}"></label><select id="sort-select" aria-label="排序方式"><option value="source" ${sorting==='source'?'selected':''}>默认顺序</option><option value="asc" ${sorting==='asc'?'selected':''}>均值从低到高</option><option value="desc" ${sorting==='desc'?'selected':''}>均值从高到低</option></select></div></div>${metric==='quality'?qualityIntro():''}<p class="mobile-hint">左右滑动查看全部分类 →</p><div class="matrix-panel"><div class="matrix-scroller" id="matrix-mount"></div><div class="matrix-note"><span>单位：${unit()} · 点击任意均值，查看对应的 10 组 Prompt 与数据</span><span class="legend"><span>${metric==='quality'?'满分 100 · 分数越高越好':'<i></i>该列最低均值'}</span><span>${metric==='quality'?'— = 暂无评分 · n = 已评分记录数':'<sup>n</sup> = 有效记录数（少于 10 时标注）'}</span></span></div></div><div class="below-note"><span>Gemini 3.8 Flash → GPT-5.6 Terra，未单独执行</span><a href="#method">${metric==='quality'?'质量均分仅统计已有评分的记录':'均值仅统计已完成且有数值的记录'} · 查看口径 ↗</a></div></section>${metric==='quality'?qualityMethodology():methodology()}`;
   renderMatrix();
-  app.querySelectorAll('[data-metric]').forEach(b=>b.addEventListener('click',()=>{metric=b.dataset.metric;renderOverview();}));
+  app.querySelectorAll('[data-metric]').forEach(b=>b.addEventListener('click',()=>{metric=b.dataset.metric;const hash=metric==='quality'?'#scores':'#';if(location.hash===hash)renderOverview();else location.hash=hash;}));
   document.getElementById('model-search').addEventListener('input',e=>{modelQuery=e.target.value;renderMatrix();});
   document.getElementById('sort-select').addEventListener('change',e=>{sorting=e.target.value;renderMatrix();});
 }
 function renderMatrix(){
   let models=activeModels().filter(m=>m.toLowerCase().includes(modelQuery.trim().toLowerCase()));
-  if(sorting!=='source') models.sort((a,b)=>{const x=stats(rowsFor(a))[metric], y=stats(rowsFor(b))[metric];return (sorting==='asc'?1:-1)*(x-y);});
-  const best=DATA.categories.map(cat=>Math.min(...activeModels().map(m=>stats(rowsFor(m,cat))[metric]).filter(numeric)));
-  const modelBest=Math.min(...activeModels().map(m=>stats(rowsFor(m))[metric]).filter(numeric));
+  if(sorting!=='source') models.sort((a,b)=>{const x=stats(rowsFor(a))[metric],y=stats(rowsFor(b))[metric];if(!numeric(x))return numeric(y)?1:0;if(!numeric(y))return -1;return (sorting==='asc'?1:-1)*(x-y);});
+  const chooseBest=values=>metric==='quality'?(values.length>1?Math.max(...values):null):Math.min(...values);
+  const best=DATA.categories.map(cat=>chooseBest(activeModels().map(m=>stats(rowsFor(m,cat))[metric]).filter(numeric)));
+  const modelBest=chooseBest(activeModels().map(m=>stats(rowsFor(m))[metric]).filter(numeric));
   function cell(model,cat,winner,overall=false){
     const s=stats(rowsFor(model,cat)), value=s[metric], n=s[metric+'N'];
-    const isBest=numeric(value)&&Math.abs(value-winner)<1e-9;
-    const shade=numeric(value)?`rgba(231,235,241,${Math.min(.68,.1+value/(metric==='seconds'?1200:12000)*.55)})`:'#fafbfc';
-    const desc=`${model||'所有实际模型'} · ${cat||'全部分类'}：${metric==='seconds'?'平均耗时':'平均积分'} ${fmt(value)} ${unit()}，${n} 条有效记录`;
-    const nLabel=!overall&&n<10?`<span class="incomplete">n=${n}</span>`:'';
-    return `<td><button class="cell ${isBest?'best':''} ${numeric(value)?'':'missing'}" style="--shade:${shade}" data-detail="${escapeHtml(detailHash(model||'all',cat||DATA.categories[0]))}" title="${escapeHtml(desc)}" aria-label="${escapeHtml(desc+'，查看明细')}">${fmt(value)}${nLabel}</button></td>`;
+    const isBest=numeric(winner)&&numeric(value)&&Math.abs(value-winner)<1e-9;
+    const shade=numeric(value)?metric==='quality'?'#edf6f0':`rgba(231,235,241,${Math.min(.68,.1+value/(metric==='seconds'?1200:12000)*.55)})`:'#fafbfc';
+    const desc=`${model||'所有实际模型'} · ${cat||'全部分类'}：${metricName()} ${fmt(value)} ${unit()}，${n} 条有效记录`;
+    const nLabel=metric==='quality'?(numeric(value)?`<span class="incomplete">${overall?`${n}/${s.total}`:`n=${n}`}</span>`:''):!overall&&n<10?`<span class="incomplete">n=${n}</span>`:'';
+    return `<td><button class="cell ${isBest?'best':''} ${numeric(value)?'':'missing'}" style="--shade:${shade}" data-detail="${escapeHtml(detailHash(model||'all',cat||(metric==='quality'?'all':DATA.categories[0])))}" title="${escapeHtml(desc)}" aria-label="${escapeHtml(desc+'，查看明细')}">${fmt(value)}${nLabel}</button></td>`;
   }
   const mount=document.getElementById('matrix-mount');
-  mount.innerHTML=`<table class="matrix"><caption style="position:absolute;width:1px;height:1px;overflow:hidden">各模型与各分类的${metric==='seconds'?'平均耗时（秒）':'平均积分'}，仅统计已完成的有效数值</caption><thead><tr><th scope="col">评测模型<small>${models.length} 个模型</small></th>${DATA.categories.map((c,i)=>`<th scope="col"><a href="${detailHash('all',c)}" title="查看${escapeHtml(c)}全部模型的 10 组记录">${categoryShort[i]} ↗</a><small>10 组测试</small></th>`).join('')}<th scope="col">模型均值<small>全部有效记录</small></th></tr></thead><tbody>${models.map(m=>`<tr><th scope="row" style="padding:0;background:white;height:42px;border-bottom:1px solid #f0f2f5"><a class="model-button" href="${detailHash(m,DATA.categories[0])}"><span class="model-icon family-${family(m)}" aria-hidden="true">${icon(m)}</span>${escapeHtml(m)}</a></th>${DATA.categories.map((c,i)=>cell(m,c,best[i])).join('')}${cell(m,null,modelBest,true)}</tr>`).join('')}</tbody><tfoot><tr><td>分类均值 <span style="font-size:9px;color:#a7afbb;font-weight:400">全部模型</span></td>${DATA.categories.map(c=>cell(null,c,-1,true)).join('')}<td><span title="全部实际模型的有效记录均值">${fmt(stats(rowsFor())[metric])}</span></td></tr></tfoot></table>${models.length?'':'<div class="empty-state">没有匹配的模型，请尝试其他关键词。</div>'}`;
+  mount.innerHTML=`<table class="matrix ${metric==='quality'?'quality-matrix':''}"><caption style="position:absolute;width:1px;height:1px;overflow:hidden">各模型与各分类的${metricName()}，${metric==='quality'?'仅统计已有最终评分的记录':'仅统计已完成的有效数值'}</caption><thead><tr><th scope="col">评测模型<small>${models.length} 个模型</small></th>${DATA.categories.map((c,i)=>`<th scope="col"><a href="${detailHash('all',c)}" title="查看${escapeHtml(c)}全部模型的 10 组记录">${categoryShort[i]} ↗</a><small>10 组测试</small></th>`).join('')}<th scope="col">模型均值<small>全部有效记录</small></th></tr></thead><tbody>${models.map(m=>`<tr class="${metric==='quality'&&qualityStats(rowsFor(m)).qualityN?'scored-model':''}"><th scope="row" style="padding:0;background:white;height:42px;border-bottom:1px solid #f0f2f5"><a class="model-button" href="${detailHash(m,DATA.categories[0])}"><span class="model-icon family-${family(m)}" aria-hidden="true">${icon(m)}</span>${escapeHtml(m)}</a></th>${DATA.categories.map((c,i)=>cell(m,c,best[i])).join('')}${cell(m,null,modelBest,true)}</tr>`).join('')}</tbody><tfoot><tr><td>分类均值 <span style="font-size:9px;color:#a7afbb;font-weight:400">${metric==='quality'?'已有评分':'全部模型'}</span></td>${DATA.categories.map(c=>cell(null,c,-1,true)).join('')}<td><span title="全部实际模型的有效记录均值">${fmt(stats(rowsFor())[metric])}</span></td></tr></tfoot></table>${models.length?'':'<div class="empty-state">没有匹配的模型，请尝试其他关键词。</div>'}`;
   mount.querySelectorAll('[data-detail]').forEach(b=>b.addEventListener('click',()=>{location.hash=b.dataset.detail;}));
 }
 function statusClass(status){return status==='已完成'?'completed':status==='失败'?'failed':status==='待重跑'?'pending':'';}
 function renderDetail(model,category){
+  if(metric==='quality')metric='seconds';
   if((model!=='all'&&!activeModels().includes(model))||!DATA.categories.includes(category)){app.innerHTML='<div class="error-state">未找到对应数据。<a href="#">返回总览</a></div>';return;}
   const rows=rowsFor(model,category), s=stats(rows);
   const label=model==='all'?'全部实际模型':model;
@@ -105,14 +108,17 @@ function route(){
   const hash=location.hash;
   document.getElementById('overview-link').classList.toggle('active',hash!=='#method');
   document.getElementById('method-link').classList.toggle('active',hash==='#method');
-  if(hash.startsWith('#detail/')){
+  if(hash.startsWith('#quality/')){
+    const parts=hash.slice(9).split('/');
+    try{renderQualityDetail(decodeURIComponent(parts[0]||''),decodeURIComponent(parts[1]||''));}catch{app.innerHTML='<div class="error-state">链接格式无效。<a href="#scores">返回质量评分</a></div>';}
+  }else if(hash.startsWith('#detail/')){
     const parts=hash.slice(8).split('/');
     try{renderDetail(decodeURIComponent(parts[0]||''),decodeURIComponent(parts[1]||''));}catch{app.innerHTML='<div class="error-state">链接格式无效。<a href="#">返回总览</a></div>';}
   }else if(hash==='#method'){
     document.title='统计口径 | KUSE Benchmark';
     const global=stats(rowsFor());
-    app.innerHTML=`<div class="method-view"><div class="breadcrumb"><a href="#">← 评测总览</a></div><p class="eyebrow">DATA & METHODOLOGY</p><h1>数据与统计口径</h1>${methodology()}<p class="subtitle" style="margin-top:20px">${global.completed-global.secondsN} 条已完成记录缺少耗时；耗时均值基于 ${global.secondsN} 条记录，积分均值基于 ${global.creditsN} 条记录。0 积分按有效数值保留。</p></div>`;
-  }else renderOverview();
+    app.innerHTML=`<div class="method-view"><div class="breadcrumb"><a href="#">← 评测总览</a></div><p class="eyebrow">DATA & METHODOLOGY</p><h1>数据与统计口径</h1>${methodology()}${qualityMethodology()}<p class="subtitle" style="margin-top:20px">${global.completed-global.secondsN} 条已完成记录缺少耗时；耗时均值基于 ${global.secondsN} 条记录，积分均值基于 ${global.creditsN} 条记录。0 积分按有效数值保留。</p></div>`;
+  }else {if(hash==='#scores')metric='quality';else if(metric==='quality')metric='seconds';renderOverview();}
   window.scrollTo(0,0);
 }
-fetch('data.json?revision=11a9d20a22ea',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}).then(data=>{DATA=data;route();window.addEventListener('hashchange',()=>{detailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
+Promise.all([fetch('data.json?revision=11a9d20a22ea',{cache:'no-cache'}),fetch('quality.json?revision=38e91c80077c',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality])=>{DATA={...data,quality};route();window.addEventListener('hashchange',()=>{detailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
