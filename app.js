@@ -20,6 +20,11 @@ const activeModels = () => {
     models.splice(haiku,1);
     models.splice(models.indexOf('Claude Sonnet 5')+1,0,'Claude Haiku 5.5');
   }
+  const sol=models.indexOf('GPT-6.1 Sol');
+  if(sol>=0&&models.includes('GPT-6 Astra')){
+    models.splice(sol,1);
+    models.splice(models.indexOf('GPT-6 Astra')+1,0,'GPT-6.1 Sol');
+  }
   return models;
 };
 const rowsFor = (model, category) => DATA.records.filter(r => (!model || model === 'all' || r.model === model) && (!category || r.category === category) && r.model !== DATA.alias.model);
@@ -36,7 +41,7 @@ function icon(model){return model==='Auto'?'k':model.startsWith('Claude')?'✳':
 function methodology(){
   const rows=rowsFor();
   const count=status=>rows.filter(r=>r.status===status).length;
-  return `<section class="method-card" id="methodology"><h2>每一个均值，都能查看原始记录</h2><div class="method-grid"><div><div class="method-label">统计口径</div><p>${escapeHtml(DATA.methodology)}</p><p>模型均值按该模型所有有效记录计算；分类均值按所有实际模型在该分类的有效记录计算。直接计算记录的算术平均，不对分组均值再次平均。先按原始数值计算均值，再四舍五入显示整数。明细和导出的耗时、积分同样显示整数。</p></div><div><div class="method-label">数据范围</div><p>80 条固定 Prompt，分为 8 个任务分类，每个分类 10 条。源表包含第 1 轮与 Staging 附件修复重测记录，快照日期为 2026 年 10 月 10 日。</p><p>Gemini 3.8 Flash 实际调用 GPT-5.6 Terra，未单独执行，因此不作为独立模型计算。源表中的失败、待重跑、已剔除和缺失数值，在明细中保留原始状态。</p></div></div><div class="method-points"><span><b>${count('已完成')}</b>已完成记录</span><span><b>${count('待重跑')}</b>待重跑</span><span><b>${count('失败')}</b>失败</span><span><b>${count('已剔除')}</b>已剔除</span></div><p style="margin-top:17px;font-size:10px;color:#a4acb8">数据来源：${escapeHtml(DATA.sourceName)}</p></section>`;
+  return `<section class="method-card" id="methodology"><h2>每一个均值，都能查看原始记录</h2><div class="method-grid"><div><div class="method-label">统计口径</div><p>${escapeHtml(DATA.methodology)}</p><p>模型均值按该模型所有有效记录计算；分类均值按所有实际模型在该分类的有效记录计算。直接计算记录的算术平均，不对分组均值再次平均。先按原始数值计算均值，再四舍五入显示整数。明细和导出的耗时、积分同样显示整数。</p></div><div><div class="method-label">数据范围</div><p>80 条固定 Prompt，分为 8 个任务分类，每个分类 10 条。源表包含第 1 轮与 Staging 附件修复重测记录，快照日期为 ${escapeHtml(DATA.snapshot)}。</p><p>Gemini 3.8 Flash 实际调用 GPT-5.6 Terra，未单独执行，因此不作为独立模型计算。源表中的失败、待重跑、已剔除和缺失数值，在明细中保留原始状态。</p></div></div><div class="method-points"><span><b>${count('已完成')}</b>已完成记录</span><span><b>${count('待重跑')}</b>待重跑</span><span><b>${count('失败')}</b>失败</span><span><b>${count('已剔除')}</b>已剔除</span></div><p style="margin-top:17px;font-size:10px;color:#a4acb8">数据来源：${escapeHtml(DATA.sourceName)}</p></section>`;
 }
 function renderOverview(){
   document.title='KUSE 模型评测看板';
@@ -135,4 +140,4 @@ function route(){
   }else {if(hash==='#scores')metric='quality';else if(metric==='quality')metric='seconds';renderOverview();}
   window.scrollTo(0,0);
 }
-Promise.all([fetch('data.json?revision=11a9d20a22ea',{cache:'no-cache'}),fetch('quality.json?revision=75826e2103ef',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality])=>{DATA={...data,quality};route();window.addEventListener('hashchange',()=>{detailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
+Promise.all([fetch('data.json?revision=55ca02d54ba4',{cache:'no-cache'}),fetch('quality.json?revision=b0d0e4018aad',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality])=>{DATA={...data,quality};route();window.addEventListener('hashchange',()=>{detailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
