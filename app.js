@@ -128,7 +128,10 @@ function route(){
   const hash=location.hash;
   document.getElementById('overview-link').classList.toggle('active',hash!=='#method');
   document.getElementById('method-link').classList.toggle('active',hash==='#method');
-  if(hash.startsWith('#image-detail/')){
+  if(hash.startsWith('#image-quality/')){
+    const parts=hash.slice(15).split('/');
+    try{renderImageQualityDetail(decodeURIComponent(parts[0]||''),decodeURIComponent(parts[1]||''));}catch{app.innerHTML='<div class="error-state">图片评分链接格式无效。<a href="#image-scores">返回图片评分</a></div>';}
+  }else if(hash.startsWith('#image-detail/')){
     const parts=hash.slice(14).split('/');
     try{renderImageDetail(decodeURIComponent(parts[0]||''),decodeURIComponent(parts[1]||''));}catch{app.innerHTML='<div class="error-state">图片模型链接格式无效。<a href="#images">返回图片模型</a></div>';}
   }else if(hash.startsWith('#quality/')){
@@ -141,7 +144,7 @@ function route(){
     document.title='统计口径 | KUSE Benchmark';
     const global=stats(rowsFor());
     app.innerHTML=`<div class="method-view"><div class="breadcrumb"><a href="#">← 评测总览</a></div><p class="eyebrow">DATA & METHODOLOGY</p><h1>数据与统计口径</h1>${methodology()}${qualityMethodology()}${imageMethodology()}<p class="subtitle" style="margin-top:20px">${global.completed-global.secondsN} 条已完成记录缺少耗时；耗时均值基于 ${global.secondsN} 条记录，积分均值基于 ${global.creditsN} 条记录。0 积分按有效数值保留。</p></div>`;
-  }else {if(hash==='#scores')metric='quality';else if(metric==='quality')metric='seconds';renderOverview();}
-  if(hash==='#images')document.getElementById('image-benchmark')?.scrollIntoView({behavior:'instant'});else window.scrollTo(0,0);
+  }else {if(hash==='#image-scores')imageMetric='quality';if(hash==='#scores')metric='quality';else if(metric==='quality'&&hash!=='#images'&&hash!=='#image-scores')metric='seconds';renderOverview();}
+  if(hash==='#images'||hash==='#image-scores')document.getElementById('image-benchmark')?.scrollIntoView({behavior:'instant'});else window.scrollTo(0,0);
 }
-Promise.all([fetch('data.json?revision=55ca02d54ba4',{cache:'no-cache'}),fetch('quality.json?revision=b0d0e4018aad',{cache:'no-cache'}),fetch('images.json?revision=97f0b0802a73',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality,images])=>{DATA={...data,quality,images};route();window.addEventListener('hashchange',()=>{detailQuery='';imageDetailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
+Promise.all([fetch('data.json?revision=55ca02d54ba4',{cache:'no-cache'}),fetch('quality.json?revision=b0d0e4018aad',{cache:'no-cache'}),fetch('images.json?revision=cf2fb1209c63',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality,images])=>{DATA={...data,quality,images};route();window.addEventListener('hashchange',()=>{detailQuery='';imageDetailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
