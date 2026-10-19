@@ -20,6 +20,11 @@ const activeModels = () => {
     models.splice(haiku,1);
     models.splice(models.indexOf('Claude Sonnet 5')+1,0,'Claude Haiku 5.5');
   }
+  const sonnet55=models.indexOf('Claude Sonnet 5.5');
+  if(sonnet55>=0&&models.includes('Claude Sonnet 5')){
+    models.splice(sonnet55,1);
+    models.splice(models.indexOf('Claude Sonnet 5')+1,0,'Claude Sonnet 5.5');
+  }
   const sol=models.indexOf('GPT-6.1 Sol');
   if(sol>=0&&models.includes('GPT-6 Astra')){
     models.splice(sol,1);
@@ -156,4 +161,4 @@ function route(){
   }else {if(hash==='#image-scores')imageMetric='quality';if(hash==='#scores')metric='quality';else if(metric==='quality'&&hash!=='#images'&&hash!=='#image-scores'&&hash!=='#videos'&&hash!=='#websites')metric='seconds';renderOverview();}
   if(hash==='#websites')document.getElementById('website-benchmark')?.scrollIntoView({behavior:'instant'});else if(hash==='#videos')document.getElementById('video-benchmark')?.scrollIntoView({behavior:'instant'});else if(hash==='#images'||hash==='#image-scores')document.getElementById('image-benchmark')?.scrollIntoView({behavior:'instant'});else window.scrollTo(0,0);
 }
-Promise.all([fetch('data.json?revision=55ca02d54ba4',{cache:'no-cache'}),fetch('quality.json?revision=3849a502547a',{cache:'no-cache'}),fetch('images.json?revision=cf2fb1209c63',{cache:'no-cache'}),fetch('videos.json?revision=9521eb41b48f',{cache:'no-cache'}),fetch('websites.json?revision=5ffb98a510cc',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality,images,videos,websites])=>{DATA={...data,quality,images,videos,websites};document.querySelector('.snapshot b').textContent=[data.snapshot,quality.updated,images.snapshot,videos.snapshot,websites.updated].sort().at(-1).replaceAll('-','.');route();window.addEventListener('hashchange',()=>{detailQuery='';imageDetailQuery='';videoDetailQuery='';websiteDetailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
+Promise.all([fetch('data.json?revision=4704592216f6',{cache:'no-cache'}),fetch('quality.json?revision=168eafe0ac36',{cache:'no-cache'}),fetch('images.json?revision=cf2fb1209c63',{cache:'no-cache'}),fetch('videos.json?revision=9521eb41b48f',{cache:'no-cache'}),fetch('websites.json?revision=5ffb98a510cc',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality,images,videos,websites])=>{DATA={...data,quality,images,videos,websites};document.querySelector('.snapshot b').textContent=[data.snapshot,quality.updated,images.snapshot,videos.snapshot,websites.updated].sort().at(-1).replaceAll('-','.');route();window.addEventListener('hashchange',()=>{detailQuery='';imageDetailQuery='';videoDetailQuery='';websiteDetailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
