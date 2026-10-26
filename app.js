@@ -15,6 +15,11 @@ const metricName = () => metric==='quality'?'平均质量分':metric==='seconds'
 const unit = () => metric==='quality'?'分（满分100）':metric === 'seconds' ? '秒' : '积分';
 const activeModels = () => {
   const models=DATA.models.filter(m=>m!==DATA.alias.model);
+  const opus55=models.indexOf('Claude Opus 5.5');
+  if(opus55>=0&&models.includes('Claude Opus 5')){
+    models.splice(opus55,1);
+    models.splice(models.indexOf('Claude Opus 5')+1,0,'Claude Opus 5.5');
+  }
   const haiku=models.indexOf('Claude Haiku 5.5');
   if(haiku>=0&&models.includes('Claude Sonnet 5')){
     models.splice(haiku,1);
@@ -161,4 +166,4 @@ function route(){
   }else {if(hash==='#image-scores')imageMetric='quality';if(hash==='#scores')metric='quality';else if(metric==='quality'&&hash!=='#images'&&hash!=='#image-scores'&&hash!=='#videos'&&hash!=='#websites')metric='seconds';renderOverview();}
   if(hash==='#websites')document.getElementById('website-benchmark')?.scrollIntoView({behavior:'instant'});else if(hash==='#videos')document.getElementById('video-benchmark')?.scrollIntoView({behavior:'instant'});else if(hash==='#images'||hash==='#image-scores')document.getElementById('image-benchmark')?.scrollIntoView({behavior:'instant'});else window.scrollTo(0,0);
 }
-Promise.all([fetch('data.json?revision=4704592216f6',{cache:'no-cache'}),fetch('quality.json?revision=432da30a29b7',{cache:'no-cache'}),fetch('images.json?revision=cf2fb1209c63',{cache:'no-cache'}),fetch('videos.json?revision=9521eb41b48f',{cache:'no-cache'}),fetch('websites.json?revision=5ffb98a510cc',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality,images,videos,websites])=>{DATA={...data,quality,images,videos,websites};document.querySelector('.snapshot b').textContent=[data.snapshot,quality.updated,images.snapshot,videos.snapshot,websites.updated].sort().at(-1).replaceAll('-','.');route();window.addEventListener('hashchange',()=>{detailQuery='';imageDetailQuery='';videoDetailQuery='';websiteDetailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
+Promise.all([fetch('data.json?revision=57d91dbfd1b9',{cache:'no-cache'}),fetch('quality.json?revision=432da30a29b7',{cache:'no-cache'}),fetch('images.json?revision=cf2fb1209c63',{cache:'no-cache'}),fetch('videos.json?revision=9521eb41b48f',{cache:'no-cache'}),fetch('websites.json?revision=5ffb98a510cc',{cache:'no-cache'})].map(p=>p.then(r=>{if(!r.ok)throw new Error('无法读取数据');return r.json();}))).then(([data,quality,images,videos,websites])=>{DATA={...data,quality,images,videos,websites};document.querySelector('.snapshot b').textContent=[data.snapshot,quality.updated,images.snapshot,videos.snapshot,websites.updated].sort().at(-1).replaceAll('-','.');route();window.addEventListener('hashchange',()=>{detailQuery='';imageDetailQuery='';videoDetailQuery='';websiteDetailQuery='';route();});}).catch(()=>{app.innerHTML='<div class="error-state">数据加载失败，请刷新页面重试。</div>';});
